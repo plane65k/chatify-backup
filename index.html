@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Chatify Backup</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#f5f5f5;--card:#fff;--text:#222;--muted:#777;
+    --green:#2e7d32;--green-dark:#1b5e20;--border:#e2e2e2;
+    --my:#e8f5e9;--other:#fff;--danger:#c62828;
+  }
+  html,body{height:100%;background:var(--bg);color:var(--text);
+    font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+  /* Header */
+  header{display:flex;align-items:center;gap:8px;padding:10px 14px;
+    background:var(--green);color:#fff;flex-shrink:0;
+    padding-top:max(10px,env(safe-area-inset-top))}
+  header b{font-size:15px}
+  header .grow{flex:1}
+  header button{background:rgba(255,255,255,.18);color:#fff;border:0;
+    padding:7px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer}
+  header button:active{background:rgba(255,255,255,.3)}
+  #archiveBtn.on{background:#fff;color:var(--green)}
+
+  /* Server bar */
+  #serverBar{display:flex;gap:6px;padding:8px 10px;background:#e8f5e9;
+    border-bottom:1px solid #c8e6c9;flex-shrink:0;flex-wrap:wrap;align-items:center}
+  #serverBar select{flex:1;min-width:120px;padding:8px;border-radius:8px;
+    border:1px solid #a5d6a7;background:#fff;font-size:13px}
+  #serverBar button{background:var(--green);color:#fff;border:0;padding:8px 10px;
+    border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+  #serverBar button.del{background:var(--danger)}
+
+  /* Login */
+  #login{display:flex;flex-direction:column;gap:8px;padding:16px;
+    background:var(--card);border-bottom:1px solid var(--border);overflow-y:auto}
+  #login input{padding:12px;border-radius:10px;border:1px solid var(--border);
+    font-size:15px;background:#fafafa;width:100%}
+  #login input:focus{outline:0;border-color:var(--green)}
+  #login .row{display:flex;gap:8px;flex-wrap:wrap}
+  #login .row input{flex:1;min-width:130px}
+  #login .row label{display:flex;align-items:center;gap:6px;font-size:12px;
+    background:#fafafa;padding:10px;border-radius:10px;border:1px solid var(--border);flex:1}
+  #login .row input[type=checkbox]{width:18px;height:18px;accent-color:var(--green)}
+  #login button{padding:13px;border-radius:24px;border:0;background:var(--green);
+    color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  #login .hint{font-size:11px;color:var(--muted);line-height:1.5;padding:8px 10px;
+    background:#fafafa;border-radius:8px;border:1px solid var(--border)}
+  #login .hint code{background:#eee;padding:1px 4px;border-radius:3px;font-size:10px}
+
+  /* Chat */
+  #chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;
+    gap:8px;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+  .msg{display:flex;gap:8px;max-width:100%;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .msg img.av{width:32px;height:32px;border-radius:50%;object-fit:cover;
+    flex-shrink:0;background:#ccc}
+  .bub{background:var(--other);padding:9px 12px;border-radius:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);max-width:80%;word-break:break-word;
+    border:1px solid var(--border)}
+  .bub .who{font-size:12px;font-weight:700;color:var(--green);margin-bottom:2px}
+  .bub .txt{font-size:14px;line-height:1.4;white-space:pre-wrap}
+  .bub .img{max-width:100%;max-height:220px;border-radius:8px;margin-top:5px;display:block}
+  .bub .time{font-size:10px;color:var(--muted);margin-top:5px;text-align:right}
+  .bub .tag{font-size:9px;padding:2px 6px;border-radius:8px;background:#e8f5e9;
+    color:var(--green);margin-top:4px;display:inline-block}
+  .bub .tag.fail{background:#ffcdd2;color:var(--danger)}
+  .msg.mine{flex-direction:row-reverse}
+  .msg.mine .bub{background:var(--my);border-color:#c8e6c9}
+
+  /* Archive placeholder */
+  #arch{display:none;flex-direction:column;align-items:center;justify-content:center;
+    flex:1;text-align:center;padding:30px 20px;color:var(--muted);gap:10px}
+  #arch h2{color:var(--green);font-size:18px}
+  #arch p{font-size:13px;max-width:340px;line-height:1.6}
+  #arch .pill{background:#e8f5e9;color:var(--green);padding:5px 14px;
+    border-radius:20px;font-size:12px;font-weight:700}
+
+  /* Composer */
+  #composer{display:flex;gap:6px;padding:8px 10px;background:var(--card);
+    border-top:1px solid var(--border);flex-shrink:0;align-items:center;
+    padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  #composer input{flex:1;padding:11px 14px;border-radius:22px;
+    border:1px solid var(--border);font-size:15px;background:#fafafa;min-width:0}
+  #composer input:focus{outline:0;border-color:var(--green)}
+  #composer button{width:42px;height:42px;border-radius:50%;border:0;
+    background:var(--green);color:#fff;font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  #composer button:disabled{opacity:.45;cursor:not-allowed}
+
+  /* Toast */
+  #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:var(--green);color:#fff;padding:10px 18px;border-radius:24px;
+    font-size:13px;font-weight:600;max-width:90vw;text-align:center;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;
+    transition:opacity .25s;z-index:999}
+  #toast.show{opacity:1}
+  #toast.err{background:var(--danger)}
+
+  /* Add-server modal */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:1000}
+  #modal.on{display:flex}
+  #modal .box{background:#fff;border-radius:16px;padding:18px;width:100%;
+    max-width:380px;display:flex;flex-direction:column;gap:8px}
+  #modal h3{color:var(--green-dark);font-size:16px}
+  #modal p{font-size:12px;color:var(--muted);line-height:1.5}
+  #modal input{padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+    font-size:14px;outline:0}
+  #modal input:focus{border-color:var(--green)}
+  #modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+  #modal .actions button{padding:9px 16px;border-radius:9px;border:0;
+    font-weight:600;font-size:13px;cursor:pointer}
+  #modal .cancel{background:#eee;color:#333}
+  #modal .save{background:var(--green);color:#fff}
+
+  .hidden{display:none!important}
+
+  @media(max-width:480px){
+    header b{font-size:14px}
+    header button{padding:6px 10px;font-size:11px}
+    .bub{max-width:85%}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <b>Chatify Backup</b>
+    <span class="grow"></span>
+    <button id="archiveBtn" title="Minimal mode">📦</button>
+    <button id="refreshBtn">↻</button>
+    <button id="outBtn">⎋</button>
+  </header>
+
+  <div id="serverBar">
+    <select id="serverSel"></select>
+    <button id="addSrv">+</button>
+    <button id="delSrv" class="del">−</button>
+  </div>
+
+  <div id="login">
+    <input id="email" type="email" placeholder="Google email" autocomplete="email">
+    <div class="row">
+      <input id="space" placeholder="Main space: spaces/AAAA…">
+      <input id="bkspace" placeholder="Backup space: spaces/AAAA… (optional)">
+    </div>
+    <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
+    <input id="name" placeholder="Display name (optional)">
+    <div class="row">
+      <label><input type="checkbox" id="remember"> Remember password</label>
+    </div>
+    <button id="loginBtn">Connect & Start Backup</button>
+    <div class="hint">
+      Only <b>new messages while the app is open</b> get copied to your backup space
+      as <code>[name] said: "text"</code>. Images are mirrored. Display caps at 100 msgs.
+      Tap 📦 for <b>minimal mode</b> — backup runs, no messages shown.
+    </div>
+  </div>
+
+  <div id="chat"></div>
+  <div id="arch">
+    <h2>📦 Minimal Mode</h2>
+    <p>Backups are running. Messages aren't shown to save resources.</p>
+    <span class="pill" id="archPill">Queue: 0</span>
+  </div>
+
+  <div id="composer">
+    <input id="msg" placeholder="Type a message…">
+    <button id="imgBtn" title="Image">🖼</button>
+    <button id="sendBtn" title="Send">➤</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="modal">
+  <div class="box">
+    <h3>Add Server</h3>
+    <p>Label + Google Chat space IDs (start with <code>spaces/</code>).</p>
+    <input id="nl" placeholder="Label (e.g. Friends)">
+    <input id="ns" placeholder="Main space: spaces/…">
+    <input id="nb" placeholder="Backup space: spaces/… (optional)">
+    <div class="actions">
+      <button class="cancel" id="mcancel">Cancel</button>
+      <button class="save" id="msave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+============================================================ */
+const WORKER = 'https://wispy-moon-6f4e.1006079-a.workers.dev';
+const IMGBB  = '588cf67669e7952039431719ce76ff7d';
+const K_SRV  = 'cbx_servers';
+const K_ACT  = 'cbx_active';
+const K_ARCH = 'cbx_archive';
+const K_PWD  = 'cbx_saved_pw';
+const K_RMEM = 'cbx_remember';
+
+const POLL_MS   = 5000;
+const BK_DELAY  = 400;
+const BK_BATCH  = 5;
+const DISP_MAX  = 100;
+const ATT_MAX   = 15;
+
+/* ============================================================
+   STATE
+============================================================ */
+let me = '', name = 'You', token = localStorage.getItem('cg_token') || '';
+let avatar = '';
+let srvList = [];
+let activeId = null;
+let archive = localStorage.getItem(K_ARCH) === '1';
+let msgs = [];
+let shown = new Set();
+let pollT = null, polling = false, sending = false;
+let bkQ = [], bkW = false;
+
+/* ============================================================
+   DOM
+============================================================ */
+const $ = id => document.getElementById(id);
+const chatEl = $('chat'), archEl = $('arch'), archPill = $('archPill');
+const loginEl = $('login'), srvSel = $('serverSel'), archBtn = $('archiveBtn');
+const toastEl = $('toast'), modalEl = $('modal');
+
+/* ============================================================
+   HELPERS
+============================================================ */
+const esc = s => s == null ? '' : String(s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;');
+const uid = () => Date.now() + '-' + Math.random().toString(36).slice(2,8);
+const fmtTime = iso => {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString('en-US',
+    {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+  catch(e){ return iso; }
+};
+const errStr = e => e == null ? 'Error'
+  : typeof e === 'string' ? e : (e.message || JSON.stringify(e));
+
+let toastT;
+function toast(txt, isErr) {
+  toastEl.textContent = txt;
+  toastEl.classList.toggle('err', !!isErr);
+  toastEl.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toastEl.classList.remove('show'), 4000);
+}
+
+function obf(s){ try{ return btoa(unescape(encodeURIComponent(s)));}catch(e){return'';} }
+function deob(s){ try{ return decodeURIComponent(escape(atob(s)));}catch(e){return'';} }
+
+/* ============================================================
+   SERVER STORAGE
+   (seen = backed-up ids, baseline = ids that existed at first load)
+============================================================ */
+function loadSrv(){
+  try{ const r = localStorage.getItem(K_SRV); return r ? JSON.parse(r) : []; }
+  catch(e){ return []; }
+}
+function saveSrv(){ localStorage.setItem(K_SRV, JSON.stringify(srvList)); }
+function activeSrv(){ return srvList.find(s => s.id === activeId) || null; }
+function initSrv(s){ if(!s.seen) s.seen = []; if(!s.baseline) s.baseline = []; return s; }
+
+function rebuildSel(){
+  srvSel.innerHTML = '';
+  if (!srvList.length){
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = '(no servers — tap +)';
+    srvSel.appendChild(o); return;
+  }
+  srvList.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = s.label + ' — ' + s.space;
+    if (s.id === activeId) o.selected = true;
+    srvSel.appendChild(o);
+  });
+}
+
+/* ============================================================
+   ARCHIVE (minimal) MODE
+============================================================ */
+function setArchive(on){
+  archive = !!on;
+  localStorage.setItem(K_ARCH, archive ? '1' : '0');
+  archBtn.classList.toggle('on', archive);
+  archBtn.textContent = archive ? '📦 ON' : '📦';
+  if (archive){
+    archEl.style.display = 'flex';
+    chatEl.style.display = 'none';
+    $('msg').disabled = true;
+    $('sendBtn').disabled = true;
+    $('imgBtn').disabled = true;
+  } else {
+    archEl.style.display = 'none';
+    chatEl.style.display = 'flex';
+    $('msg').disabled = false;
+    $('sendBtn').disabled = false;
+    $('imgBtn').disabled = false;
+    renderCapped(true);
+  }
+  updateArchPill();
+}
+function updateArchPill(){
+  if (!archive) return;
+  const s = activeSrv();
+  archPill.textContent = `Queue: ${bkQ.length}  •  Backed up: ${s && s.seen ? s.seen.length : 0}`;
+}
+
+/* ============================================================
+   RENDER
+============================================================ */
+function renderOne(m){
+  if (shown.has(m.id)) return;
+  shown.add(m.id);
+
+  const el = document.createElement('div');
+  el.className = 'msg' + (m.isMine ? ' mine' : '');
+  el.dataset.id = m.id;
+
+  let body = '';
+  if (m.attachment){
+    if (m.message && m.message.trim())
+      body += `<div class="txt">${esc(m.message)}</div>`;
+    body += `<img class="img" src="${esc(m.attachment)}" loading="lazy" alt="">`;
+  } else if (m.message && /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(m.message)){
+    body = `<img class="img" src="${esc(m.message)}" loading="lazy" alt="">`;
+  } else if (m.message && /^https?:\/\//i.test(m.message)){
+    body = `<a href="${esc(m.message)}" target="_blank">${esc(m.message)}</a>`;
+  } else {
+    body = esc(m.message || '');
+  }
+
+  let tag = '';
+  if (m.backupState === 'sent')      tag = '<span class="tag">🛡️ backed up</span>';
+  else if (m.backupState === 'fail') tag = '<span class="tag fail">⚠️ backup failed</span>';
+  else if (m.backupState === 'pend') tag = '<span class="tag">⏳ backing up…</span>';
+
+  el.innerHTML = `
+    <img class="av" src="${esc(m.avatarUrl || 'https://res.cloudinary.com/dceqg5cky/image/upload/SDG_log-removebg-preview_bslq5d.png')}" alt="">
+    <div class="bub">
+      <div class="who">${esc(m.username)}</div>
+      <div class="txt">${body}</div>
+      ${tag}
+      <div class="time">${esc(m.timestamp || '')}</div>
+    </div>`;
+  chatEl.appendChild(el);
+}
+
+function renderCapped(scroll){
+  if (archive) return;
+  Array.from(chatEl.children).forEach(c => c.remove());
+  shown.clear();
+  msgs.slice(-DISP_MAX).forEach(renderOne);
+  if (scroll) chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function setBadge(id, state){
+  if (archive) return;
+  const el = chatEl.querySelector('.msg[data-id="' + CSS.escape(id) + '"] .bub');
+  if (!el) return;
+  let t = el.querySelector('.tag');
+  if (!t){
+    t = document.createElement('span');
+    t.className = 'tag';
+    const time = el.querySelector('.time');
+    if (time) time.before(t); else el.appendChild(t);
+  }
+  t.classList.toggle('fail', state === 'fail');
+  t.textContent = state === 'sent' ? '🛡️ backed up'
+    : state === 'fail' ? '⚠️ backup failed'
+    : '⏳ backing up…';
+}
+
+/* ============================================================
+   FETCH / NORMALIZE
+============================================================ */
+async function fetchSpace(space){
+  const r = await fetch(WORKER + '/messages?space=' + encodeURIComponent(space) + '&pageSize=200',
+    { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.error){
+    if (r.status === 401){ token = ''; localStorage.removeItem('cg_token'); }
+    throw new Error(errStr(d.error) || ('HTTP ' + r.status));
+  }
+  return d.messages || [];
+}
+
+function norm(m){
+  const s = m.sender || {};
+  const email = (s.email || '').toLowerCase();
+  const isMine = email && email === me;
+  let body = m.text || '';
+  let att = null;
+
+  if (m.attachment && m.attachment.length){
+    const a = m.attachment[0];
+    if (a.contentType && a.contentType.startsWith('image/')) att = a.name;
+    else body = body || ('[file] ' + (a.contentName || ''));
+  }
+  if (m.attachedGifs && m.attachedGifs.length){
+    const g = m.attachedGifs[0].uri;
+    if (g && !body) body = g;
+  }
+  return {
+    id: m.name || uid(),
+    username: s.displayName || s.name || 'Unknown',
+    avatarUrl: s.avatarUrl || '',
+    message: body,
+    attachment: att,
+    rawAtt: m.attachment && m.attachment[0] ? m.attachment[0] : null,
+    timestamp: fmtTime(m.createTime),
+    isMine: !!isMine
+  };
+}
+
+/* Resolve at most ATT_MAX recent image attachments, only if not archive mode */
+async function resolveAtts(list, space){
+  if (archive) return;
+  let n = 0;
+  for (let i = list.length - 1; i >= 0 && n < ATT_MAX; i--){
+    const m = list[i];
+    if (!m.rawAtt || !m.rawAtt.contentType?.startsWith('image/')) continue;
+    if (m.attachment && m.attachment.startsWith('blob:')) continue;
+    const rn = (m.rawAtt.attachmentDataRef && m.rawAtt.attachmentDataRef.resourceName) || m.rawAtt.name;
+    if (!rn) continue;
+    try {
+      const r = await fetch(WORKER + '/attachment?space=' + encodeURIComponent(space) +
+        '&resource=' + encodeURIComponent(rn) + '&email=' + encodeURIComponent(me),
+        { headers: { Authorization: 'Bearer ' + token } });
+      if (r.ok){ m.attachment = URL.createObjectURL(await r.blob()); n++; }
+    } catch(e){}
+  }
+}
+
+/* ============================================================
+   BACKUP QUEUE (single sequential worker, paced)
+============================================================ */
+function enqueue(m){
+  const s = activeSrv();
+  if (!s || !s.bkspace) return;
+  initSrv(s);
+  if (s.seen.includes(m.id)) return;
+  if (s.baseline.includes(m.id)) return;
+  if (bkQ.some(q => q.id === m.id)) return;
+  m.backupState = 'pend';
+  bkQ.push(m);
+  updateArchPill();
+  kickBk();
+}
+
+function kickBk(){
+  if (bkW || !bkQ.length) return;
+  bkW = true;
+  setTimeout(drainBk, 80);
+}
+
+async function drainBk(){
+  try {
+    const s = activeSrv();
+    if (!s || !s.bkspace){ bkW = false; return; }
+    initSrv(s);
+
+    let n = 0;
+    while (bkQ.length && n < BK_BATCH){
+      const m = bkQ[0];
+      if (s.seen.includes(m.id) || s.baseline.includes(m.id)){
+        bkQ.shift(); continue;
+      }
+      const ok = await sendBackup(s, m);
+      bkQ.shift(); n++;
+      if (ok){
+        s.seen.push(m.id);
+        if (s.seen.length > 5000) s.seen = s.seen.slice(-5000);
+        m.backupState = 'sent';
+        setBadge(m.id, 'sent');
+      } else {
+        m.backupState = 'fail';
+        setBadge(m.id, 'fail');
+      }
+      saveSrv();
+      updateArchPill();
+      if (bkQ.length) await new Promise(r => setTimeout(r, BK_DELAY));
+    }
+  } catch(e){
+    console.warn('bk worker', e);
+  } finally {
+    bkW = false;
+    if (bkQ.length){ bkW = true; setTimeout(drainBk, 600); }
+  }
+}
+
+async function sendBackup(s, m){
+  if (!s.bkspace || !s.bkspace.startsWith('spaces/') || s.bkspace.includes('/messages/')){
+    console.warn('bad backup space', s.bkspace); return false;
+  }
+  const who = m.username || 'Unknown';
+  let txt;
+  if (m.message && /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(m.message))
+    txt = `[${who}] said: "[image] ${m.message}"`;
+  else if (m.message) txt = `[${who}] said: "${m.message}"`;
+  else if (m.attachment) txt = `[${who}] said: "[image]"`;
+  else txt = `[${who}] said: "[empty]"`;
+
+  try {
+    const r = await fetch(WORKER + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ space: s.bkspace, text: txt })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) throw new Error(errStr(d.error) || ('HTTP ' + r.status));
+    return true;
+  } catch(e){
+    console.warn('bk fail', m.id, e);
+    return false;
+  }
+}
+
+/* ============================================================
+   LOAD
+============================================================ */
+async function load(){
+  const s = activeSrv();
+  if (!s) return;
+  try {
+    const raw = await fetchSpace(s.space);
+    const list = raw.slice().reverse().slice(-200).map(norm);
+
+    if (!avatar){
+      const mine = list.find(m => m.isMine && m.avatarUrl);
+      if (mine) avatar = mine.avatarUrl;
+    }
+
+    initSrv(s);
+    if (!s.baseline.length){
+      s.baseline = list.map(m => m.id);
+      saveSrv();
+    }
+
+    await resolveAtts(list, s.space);
+    msgs = list;
+
+    if (!archive) renderCapped(true);
+
+    for (const m of list){
+      if (!s.baseline.includes(m.id) && !s.seen.includes(m.id)) enqueue(m);
+    }
+    updateArchPill();
+  } catch(e){
+    toast('Load failed: ' + errStr(e), true);
+  }
+}
+
+/* ============================================================
+   POLL
+============================================================ */
+function startPoll(){
+  stopPoll();
+  pollT = setInterval(async () => {
+    if (polling || sending) return;
+    const s = activeSrv();
+    if (!s) return;
+    polling = true;
+    try {
+      const raw = await fetchSpace(s.space);
+      const list = raw.slice().reverse().slice(-200).map(norm);
+      const known = new Set(msgs.map(m => m.id));
+      const fresh = list.filter(m => !known.has(m.id));
+      if (!fresh.length) return;
+
+      initSrv(s);
+      if (!s.baseline.length){ s.baseline = list.map(m => m.id); saveSrv(); }
+
+      if (!archive){
+        let n = 0;
+        for (let i = fresh.length - 1; i >= 0 && n < ATT_MAX; i--){
+          const m = fresh[i];
+          if (!m.rawAtt || !m.rawAtt.contentType?.startsWith('image/')) continue;
+          if (m.attachment && m.attachment.startsWith('blob:')) continue;
+          const rn = (m.rawAtt.attachmentDataRef && m.rawAtt.attachmentDataRef.resourceName) || m.rawAtt.name;
+          if (!rn) continue;
+          try {
+            const r = await fetch(WORKER + '/attachment?space=' + encodeURIComponent(s.space) +
+              '&resource=' + encodeURIComponent(rn) + '&email=' + encodeURIComponent(me),
+              { headers: { Authorization: 'Bearer ' + token } });
+            if (r.ok){ m.attachment = URL.createObjectURL(await r.blob()); n++; }
+          } catch(e){}
+        }
+      }
+
+      msgs = list;
+      for (const m of fresh){
+        if (!s.baseline.includes(m.id) && !s.seen.includes(m.id)) enqueue(m);
+      }
+
+      if (!archive){
+        fresh.forEach(renderOne);
+        const nodes = Array.from(chatEl.children);
+        if (nodes.length > DISP_MAX)
+          nodes.slice(0, nodes.length - DISP_MAX).forEach(n => n.remove());
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+      updateArchPill();
+    } catch(e){} finally { polling = false; }
+  }, POLL_MS);
+}
+function stopPoll(){ if (pollT){ clearInterval(pollT); pollT = null; } }
+
+/* ============================================================
+   SEND / IMAGE
+============================================================ */
+async function send(){
+  if (archive || sending) return;
+  const s = activeSrv();
+  const text = ($('msg').value || '').trim();
+  if (!text || !s) return;
+  $('msg').value = '';
+  sending = true; $('sendBtn').disabled = true;
+  try {
+    const r = await fetch(WORKER + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ space: s.space, text })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) throw new Error(errStr(d.error) || ('HTTP ' + r.status));
+    const m = norm(d.message);
+    msgs.push(m);
+    if (!archive){ renderOne(m); chatEl.scrollTop = chatEl.scrollHeight; }
+    enqueue(m);
+    setTimeout(load, 600);
+  } catch(e){
+    toast('Send failed: ' + errStr(e), true);
+  } finally {
+    sending = false; $('sendBtn').disabled = archive;
+  }
+}
+
+const fileIn = document.createElement('input');
+fileIn.type = 'file'; fileIn.accept = 'image/*'; fileIn.style.display = 'none';
+document.body.appendChild(fileIn);
+
+$('imgBtn').onclick = () => { if (!archive) fileIn.click(); };
+fileIn.onchange = async () => {
+  const f = fileIn.files[0];
+  fileIn.value = '';
+  if (!f || archive) return;
+  if (f.size > 10 * 1024 * 1024){ toast('Image too large (10MB max)', true); return; }
+  const s = activeSrv(); if (!s) return;
+
+  sending = true; $('imgBtn').disabled = true;
+  try {
+    const b64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    const fd = new FormData();
+    fd.append('key', IMGBB);
+    fd.append('image', b64);
+    const up = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: fd });
+    const ud = await up.json();
+    if (!ud.success || !ud.data?.url) throw new Error('ImgBB upload failed');
+    const url = ud.data.url;
+
+    const r = await fetch(WORKER + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ space: s.space, text: url })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) throw new Error(errStr(d.error) || ('HTTP ' + r.status));
+
+    const m = norm(d.message);
+    msgs.push(m);
+    if (!archive){ renderOne(m); chatEl.scrollTop = chatEl.scrollHeight; }
+    enqueue(m);
+    toast('Image sent, queued for backup');
+    setTimeout(load, 800);
+  } catch(e){
+    toast('Image failed: ' + errStr(e), true);
+  } finally {
+    sending = false; $('imgBtn').disabled = archive;
+  }
+};
+
+/* ============================================================
+   LOGIN / LOGOUT
+============================================================ */
+async function doLogin(){
+  const email = $('email').value.trim().toLowerCase();
+  const pass  = $('pass').value;
+  const space = $('space').value.trim();
+  const bksp  = $('bkspace').value.trim();
+  const nm    = $('name').value.trim() || 'You';
+
+  if (!email.includes('@')){ alert('Enter your email'); return; }
+  if (!pass){ alert('Enter your password'); return; }
+  if (!space.startsWith('spaces/')){ alert('Main space must start with spaces/'); return; }
+  if (bksp && (!bksp.startsWith('spaces/') || bksp.includes('/messages/')))
+    { alert('Backup space must be a valid space (spaces/…), not a message'); return; }
+
+  if ($('remember').checked){
+    localStorage.setItem(K_RMEM, '1');
+    localStorage.setItem(K_PWD, obf(pass));
+  } else {
+    localStorage.removeItem(K_RMEM);
+    localStorage.removeItem(K_PWD);
+  }
+
+  const btn = $('loginBtn');
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  try {
+    const r = await fetch(WORKER + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.token) throw new Error(d.error || 'Login failed');
+
+    token = d.token;
+    localStorage.setItem('cg_token', token);
+    me = email; name = nm;
+    localStorage.setItem('cg_email', me);
+    localStorage.setItem('cg_name', name);
+
+    srvList = loadSrv();
+    let s = srvList.find(x => x.space === space);
+    if (!s){
+      s = { id: uid(), label: nm + "'s space", space, bkspace: bksp, seen: [], baseline: [] };
+      srvList.push(s);
+    } else {
+      if (bksp) s.bkspace = bksp;
+      initSrv(s);
+    }
+    saveSrv();
+    activeId = s.id;
+    localStorage.setItem(K_ACT, activeId);
+    rebuildSel();
+
+    loginEl.classList.add('hidden');
+    setArchive(archive);
+    await load();
+    startPoll();
+    btn.textContent = 'Connect & Start Backup'; btn.disabled = false;
+  } catch(e){
+    alert('Sign-in failed:\n' + errStr(e));
+    btn.textContent = 'Connect & Start Backup'; btn.disabled = false;
+  }
+}
+
+$('outBtn').onclick = () => {
+  stopPoll();
+  token = '';
+  localStorage.removeItem('cg_token');
+  location.reload();
+};
+$('refreshBtn').onclick = () => { if (token) load(); };
+$('loginBtn').onclick = doLogin;
+$('sendBtn').onclick = send;
+$('msg').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+archBtn.onclick = () => setArchive(!archive);
+
+/* ============================================================
+   SERVER SWITCH / ADD / REMOVE
+============================================================ */
+srvSel.onchange = () => {
+  if (!srvSel.value) return;
+  activeId = srvSel.value;
+  localStorage.setItem(K_ACT, activeId);
+  msgs = []; shown.clear();
+  Array.from(chatEl.children).forEach(c => c.remove());
+  updateArchPill();
+  if (token) load();
+};
+
+$('addSrv').onclick = () => {
+  $('nl').value = ''; $('ns').value = ''; $('nb').value = '';
+  modalEl.classList.add('on');
+};
+$('mcancel').onclick = () => modalEl.classList.remove('on');
+modalEl.onclick = e => { if (e.target === modalEl) modalEl.classList.remove('on'); };
+$('msave').onclick = () => {
+  const l = $('nl').value.trim();
+  const s = $('ns').value.trim();
+  const b = $('nb').value.trim();
+  if (!l){ alert('Enter a label'); return; }
+  if (!s.startsWith('spaces/')){ alert('Main space must start with spaces/'); return; }
+  if (b && (!b.startsWith('spaces/') || b.includes('/messages/')))
+    { alert('Backup space must be a valid space'); return; }
+  srvList.push({ id: uid(), label: l, space: s, bkspace: b, seen: [], baseline: [] });
+  saveSrv(); rebuildSel(); modalEl.classList.remove('on');
+  toast('Server added: ' + l);
+};
+
+$('delSrv').onclick = () => {
+  if (srvList.length <= 1){ toast('Cannot remove last server', true); return; }
+  const s = activeSrv(); if (!s) return;
+  if (!confirm('Remove "' + s.label + '"? Only from this app.')) return;
+  srvList = srvList.filter(x => x.id !== s.id);
+  saveSrv();
+  activeId = srvList[0].id;
+  localStorage.setItem(K_ACT, activeId);
+  rebuildSel();
+  msgs = []; shown.clear();
+  Array.from(chatEl.children).forEach(c => c.remove());
+  if (token) load();
+};
+
+/* ============================================================
+   AUTO-RESUME
+============================================================ */
+(async function boot(){
+  srvList = loadSrv();
+  const saved = localStorage.getItem(K_ACT);
+  if (saved && srvList.find(s => s.id === saved)) activeId = saved;
+  else if (srvList.length) activeId = srvList[0].id;
+  rebuildSel();
+
+  if (localStorage.getItem(K_RMEM) === '1'){
+    $('remember').checked = true;
+    const pw = deob(localStorage.getItem(K_PWD) || '');
+    if (pw) $('pass').value = pw;
+  }
+  $('email').value = localStorage.getItem('cg_email') || '';
+  $('name').value = localStorage.getItem('cg_name') || '';
+
+  const s = activeSrv();
+  if (s){ $('space').value = s.space; $('bkspace').value = s.bkspace || ''; }
+
+  archBtn.classList.toggle('on', archive);
+  archBtn.textContent = archive ? '📦 ON' : '📦';
+  if (archive){ archEl.style.display = 'flex'; chatEl.style.display = 'none'; }
+
+  me = localStorage.getItem('cg_email') || '';
+  name = localStorage.getItem('cg_name') || 'You';
+  token = localStorage.getItem('cg_token') || '';
+
+  if (!me || !token || !activeId) return;
+
+  try {
+    loginEl.classList.add('hidden');
+    setArchive(archive);
+    await load();
+    startPoll();
+  } catch(e){
+    localStorage.removeItem('cg_token');
+    token = '';
+  }
+})();
+</script>
+</body>
+</html>
