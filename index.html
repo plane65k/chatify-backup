@@ -205,7 +205,7 @@ const K_ARCH = 'cbx_archive';
 const K_PWD  = 'cbx_saved_pw';
 const K_RMEM = 'cbx_remember';
 
-const POLL_MS   = 5000;
+const POLL_MS   = 500;
 const BK_DELAY  = 400;
 const BK_BATCH  = 5;
 const DISP_MAX  = 100;
@@ -454,6 +454,9 @@ function enqueue(m){
   if (s.seen.includes(m.id)) return;
   if (s.baseline.includes(m.id)) return;
   if (bkQ.some(q => q.id === m.id)) return;
+  // Guard: if this message already has a backupState, don't re-enqueue.
+  // Prevents the 500ms poll from re-queuing the same message mid-flight.
+  if (m.backupState === 'pend' || m.backupState === 'sent') return;
   m.backupState = 'pend';
   bkQ.push(m);
   updateArchPill();
@@ -544,19 +547,15 @@ async function load(){
     }
 
     initSrv(s);
-    if (!s.baseline.length){
-      s.baseline = list.map(m => m.id);
-      saveSrv();
-    }
+
+    // Snapshot current state — no backups from load()
+    s.baseline = list.map(m => m.id);
+    saveSrv();
 
     await resolveAtts(list, s.space);
     msgs = list;
 
     if (!archive) renderCapped(true);
-
-    for (const m of list){
-      if (!s.baseline.includes(m.id) && !s.seen.includes(m.id)) enqueue(m);
-    }
     updateArchPill();
   } catch(e){
     toast('Load failed: ' + errStr(e), true);
@@ -576,34 +575,42 @@ function startPoll(){
     try {
       const raw = await fetchSpace(s.space);
       const list = raw.slice().reverse().slice(-200).map(norm);
-      const known = new Set(msgs.map(m => m.id));
-      const fresh = list.filter(m => !known.has(m.id));
-      if (!fresh.length) return;
+
+      const knownIds = new Set(msgs.map(m => m.id));
+      const fresh = list.filter(m => !knownIds.has(m.id));
+      if (!fresh.length) return;   // nothing changed → do nothing
 
       initSrv(s);
-      if (!s.baseline.length){ s.baseline = list.map(m => m.id); saveSrv(); }
+
+      // The newest message in the list is the only thing we back up.
+      // Everything else becomes baseline so it never gets backed up.
+      const newest = list[list.length - 1];
+      s.baseline = list
+        .filter(m => m.id !== newest.id)
+        .map(m => m.id);
+      saveSrv();
 
       if (!archive){
-        let n = 0;
-        for (let i = fresh.length - 1; i >= 0 && n < ATT_MAX; i--){
-          const m = fresh[i];
-          if (!m.rawAtt || !m.rawAtt.contentType?.startsWith('image/')) continue;
-          if (m.attachment && m.attachment.startsWith('blob:')) continue;
+        // Resolve attachments for the newest only
+        const m = newest;
+        if (m.rawAtt && m.rawAtt.contentType?.startsWith('image/') &&
+            !(m.attachment && m.attachment.startsWith('blob:'))){
           const rn = (m.rawAtt.attachmentDataRef && m.rawAtt.attachmentDataRef.resourceName) || m.rawAtt.name;
-          if (!rn) continue;
-          try {
-            const r = await fetch(WORKER + '/attachment?space=' + encodeURIComponent(s.space) +
-              '&resource=' + encodeURIComponent(rn) + '&email=' + encodeURIComponent(me),
-              { headers: { Authorization: 'Bearer ' + token } });
-            if (r.ok){ m.attachment = URL.createObjectURL(await r.blob()); n++; }
-          } catch(e){}
+          if (rn){
+            try {
+              const r = await fetch(WORKER + '/attachment?space=' + encodeURIComponent(s.space) +
+                '&resource=' + encodeURIComponent(rn) + '&email=' + encodeURIComponent(me),
+                { headers: { Authorization: 'Bearer ' + token } });
+              if (r.ok) m.attachment = URL.createObjectURL(await r.blob());
+            } catch(e){}
+          }
         }
       }
 
       msgs = list;
-      for (const m of fresh){
-        if (!s.baseline.includes(m.id) && !s.seen.includes(m.id)) enqueue(m);
-      }
+
+      // Back up ONLY the newest message
+      if (!s.seen.includes(newest.id)) enqueue(newest);
 
       if (!archive){
         fresh.forEach(renderOne);
